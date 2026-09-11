@@ -75,7 +75,11 @@ export default function RegisterPage() {
         setGoogleLoading(false);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to initialize Google signup.');
+      if (err.message === 'Failed to fetch') {
+        setErrorMsg('Unable to connect to the authentication server. Please check your internet connection and try again.');
+      } else {
+        setErrorMsg(err.message || 'Failed to initialize Google signup.');
+      }
       setGoogleLoading(false);
     }
   };
@@ -128,7 +132,11 @@ export default function RegisterPage() {
         }, 1500);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'An unexpected error occurred during registration.');
+      if (err.message === 'Failed to fetch') {
+        setErrorMsg('Unable to connect to the authentication server. Please check your internet connection and try again.');
+      } else {
+        setErrorMsg(err.message || 'An unexpected error occurred during registration.');
+      }
     } finally {
       setLoading(false);
     }

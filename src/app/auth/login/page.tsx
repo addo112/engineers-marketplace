@@ -48,7 +48,11 @@ export default function LoginPage() {
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'An unexpected error occurred during login.');
+      if (err.message === 'Failed to fetch') {
+        setErrorMsg('Unable to connect to the authentication server. Please check your internet connection and try again.');
+      } else {
+        setErrorMsg(err.message || 'An unexpected error occurred during login.');
+      }
     } finally {
       setLoading(false);
     }
@@ -76,7 +80,11 @@ export default function LoginPage() {
         setGoogleLoading(false);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to initialize Google authentication.');
+      if (err.message === 'Failed to fetch') {
+        setErrorMsg('Unable to connect to the authentication server. Please check your internet connection and try again.');
+      } else {
+        setErrorMsg(err.message || 'Failed to initialize Google authentication.');
+      }
       setGoogleLoading(false);
     }
   };
