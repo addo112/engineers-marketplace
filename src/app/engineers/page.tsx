@@ -1,126 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Search, MapPin, Star, ShieldCheck, Filter, 
-  ChevronDown, LayoutGrid, List, X
+  ChevronDown, LayoutGrid, List, X, Loader2, UserPlus
 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
-const MOCK_ENGINEERS = [
-  {
-    id: '1',
-    name: 'Kwame Asante',
-    title: 'Senior Civil Engineer',
-    rating: 4.9,
-    reviews: 47,
-    location: 'Accra, Ghana',
-    experience: '15 years',
-    hourlyRate: 85,
-    tags: ['Structural', 'Concrete', 'Bridge Design'],
-    available: true,
-    verified: true,
-    category: 'Civil',
-  },
-  {
-    id: '2',
-    name: 'Akua Mensah',
-    title: 'Electrical Engineer',
-    rating: 4.8,
-    reviews: 32,
-    location: 'Kumasi, Ghana',
-    experience: '8 years',
-    hourlyRate: 65,
-    tags: ['Power Systems', 'Renewable Energy', 'AutoCAD'],
-    available: true,
-    verified: true,
-    category: 'Electrical',
-  },
-  {
-    id: '3',
-    name: 'Kofi Osei',
-    title: 'Mechanical Design Engineer',
-    rating: 4.7,
-    reviews: 21,
-    location: 'Takoradi, Ghana',
-    experience: '12 years',
-    hourlyRate: 75,
-    tags: ['HVAC', 'Fluid Mechanics', 'SolidWorks'],
-    available: false,
-    verified: true,
-    category: 'Mechanical',
-  },
-  {
-    id: '4',
-    name: 'Abena Frimpong',
-    title: 'Software Engineer',
-    rating: 5.0,
-    reviews: 89,
-    location: 'Remote',
-    experience: '6 years',
-    hourlyRate: 90,
-    tags: ['React', 'Node.js', 'System Architecture'],
-    available: true,
-    verified: true,
-    category: 'Software',
-  },
-  {
-    id: '5',
-    name: 'Yaw Boakye',
-    title: 'Chemical Engineer',
-    rating: 4.6,
-    reviews: 15,
-    location: 'Tema, Ghana',
-    experience: '10 years',
-    hourlyRate: 70,
-    tags: ['Process Design', 'Petrochemical', 'Safety'],
-    available: true,
-    verified: false,
-    category: 'Chemical',
-  },
-  {
-    id: '6',
-    name: 'Ama Serwaa',
-    title: 'Environmental Engineer',
-    rating: 4.9,
-    reviews: 41,
-    location: 'Tamale, Ghana',
-    experience: '9 years',
-    hourlyRate: 60,
-    tags: ['Water Treatment', 'EIA', 'Sustainability'],
-    available: true,
-    verified: true,
-    category: 'Environmental',
-  },
-  {
-    id: '7',
-    name: 'Kwabena Yeboah',
-    title: 'Biomedical Engineer',
-    rating: 4.8,
-    reviews: 28,
-    location: 'Accra, Ghana',
-    experience: '7 years',
-    hourlyRate: 80,
-    tags: ['Medical Devices', 'Biomechanics', 'R&D'],
-    available: false,
-    verified: true,
-    category: 'Biomedical',
-  },
-  {
-    id: '8',
-    name: 'Yaa Ansah',
-    title: 'Industrial Engineer',
-    rating: 4.7,
-    reviews: 19,
-    location: 'Kumasi, Ghana',
-    experience: '11 years',
-    hourlyRate: 75,
-    tags: ['Supply Chain', 'Optimization', 'Lean Six Sigma'],
-    available: true,
-    verified: true,
-    category: 'Industrial',
-  },
-];
+export interface EngineerItem {
+  id: string;
+  name: string;
+  title: string;
+  rating: number;
+  reviews: number;
+  location: string;
+  experience: string;
+  hourlyRate: number;
+  tags: string[];
+  available: boolean;
+  verified: boolean;
+  category: string;
+  bio?: string;
+}
 
 const CATEGORIES = [
   'All', 'Civil', 'Mechanical', 'Electrical', 'Software', 
@@ -129,6 +31,8 @@ const CATEGORIES = [
 ];
 
 export default function EngineersPage() {
+  const [engineers, setEngineers] = useState<EngineerItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [location, setLocation] = useState('');
@@ -140,7 +44,85 @@ export default function EngineersPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('Top Rated');
 
-  const filteredEngineers = MOCK_ENGINEERS.filter(eng => {
+  useEffect(() => {
+    async function fetchEngineers() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('engineers')
+          .select(`
+            id,
+            title,
+            bio,
+            experience_years,
+            hourly_rate,
+            location,
+            country,
+            availability_status,
+            is_verified,
+            rating_average,
+            rating_count,
+            specializations,
+            profiles (
+              id,
+              full_name,
+              avatar_url,
+              email
+            )
+          `);
+
+        if (error) {
+          console.error('Error fetching engineers:', error);
+          setEngineers([]);
+        } else if (data) {
+          const list: EngineerItem[] = data
+            // Filter out test emails
+            .filter((eng: any) => !eng.profiles?.email?.includes('proengineer.test'))
+            .map((eng: any) => {
+              const name = eng.profiles?.full_name || 'Professional Engineer';
+              const title = eng.title || 'Specialist Engineer';
+              
+              // Infer category from title or specializations
+              let cat = 'All';
+              for (const c of CATEGORIES) {
+                if (c !== 'All' && (title.toLowerCase().includes(c.toLowerCase()) || eng.bio?.toLowerCase().includes(c.toLowerCase()))) {
+                  cat = c;
+                  break;
+                }
+              }
+
+              return {
+                id: eng.id,
+                name,
+                title,
+                rating: Number(eng.rating_average) || 5.0,
+                reviews: Number(eng.rating_count) || 0,
+                location: eng.location ? `${eng.location}, ${eng.country || 'GH'}` : 'Ghana',
+                experience: `${eng.experience_years || 1} years`,
+                hourlyRate: Number(eng.hourly_rate) || 50,
+                tags: Array.isArray(eng.specializations) && eng.specializations.length > 0 
+                  ? eng.specializations 
+                  : [title],
+                available: eng.availability_status === 'available',
+                verified: Boolean(eng.is_verified),
+                category: cat,
+                bio: eng.bio,
+              };
+            });
+
+          setEngineers(list);
+        }
+      } catch (err) {
+        console.error('Failed to load engineers:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEngineers();
+  }, []);
+
+  const filteredEngineers = engineers.filter(eng => {
     if (search && !eng.name.toLowerCase().includes(search.toLowerCase()) && !eng.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (category !== 'All' && eng.category !== category) return false;
     if (location && !eng.location.toLowerCase().includes(location.toLowerCase())) return false;
@@ -176,7 +158,9 @@ export default function EngineersPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Find Engineers</h1>
-            <p className="text-slate-600">Showing {filteredEngineers.length} results</p>
+            <p className="text-slate-600">
+              {loading ? 'Loading engineers...' : `Showing ${filteredEngineers.length} verified professionals`}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button 
@@ -189,12 +173,14 @@ export default function EngineersPage() {
               <button 
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-md ${viewMode === 'grid' ? 'bg-slate-100 text-[#1e3a5f]' : 'text-slate-500 hover:text-slate-700'}`}
+                aria-label="Grid View"
               >
                 <LayoutGrid className="w-5 h-5" />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-slate-100 text-[#1e3a5f]' : 'text-slate-500 hover:text-slate-700'}`}
+                aria-label="List View"
               >
                 <List className="w-5 h-5" />
               </button>
@@ -239,7 +225,7 @@ export default function EngineersPage() {
                     <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input 
                       type="text" 
-                      placeholder="Search engineers..."
+                      placeholder="Search engineers by name or skill..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]"
@@ -269,7 +255,7 @@ export default function EngineersPage() {
                   <h3 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider">Location</h3>
                   <input 
                     type="text" 
-                    placeholder="E.g., Accra, Remote"
+                    placeholder="E.g., Accra, Kumasi, Remote"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] text-sm"
@@ -344,16 +330,36 @@ export default function EngineersPage() {
 
           {/* Results Grid */}
           <main className="flex-1">
-            {filteredEngineers.length === 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200">
+                <Loader2 className="w-10 h-10 animate-spin text-[#1e3a5f] mb-4" />
+                <p className="text-slate-500 font-medium">Loading verified engineers...</p>
+              </div>
+            ) : filteredEngineers.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-                  <Search className="w-8 h-8 text-slate-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-[#1e3a5f] mb-4">
+                  <UserPlus className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">No engineers found</h3>
-                <p className="text-slate-500 mb-6 max-w-md mx-auto">We couldn't find any engineers matching your current filters. Try adjusting your search criteria.</p>
-                <button onClick={clearFilters} className="text-[#1e3a5f] font-medium hover:underline">
-                  Clear all filters
-                </button>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">No engineers registered yet</h3>
+                <p className="text-slate-500 mb-6 max-w-md mx-auto">
+                  {search || category !== 'All'
+                    ? 'No registered engineers match your current filters. Try resetting the filters.'
+                    : 'Be the first licensed professional to join the marketplace and connect with clients.'}
+                </p>
+                <div className="flex justify-center gap-3">
+                  {(search || category !== 'All') ? (
+                    <button onClick={clearFilters} className="text-[#1e3a5f] font-medium hover:underline">
+                      Clear all filters
+                    </button>
+                  ) : (
+                    <Link
+                      href="/register?role=engineer"
+                      className="inline-flex items-center gap-2 bg-[#1e3a5f] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#152a45] transition-colors"
+                    >
+                      Join as an Engineer
+                    </Link>
+                  )}
+                </div>
               </div>
             ) : (
               <div className={`
