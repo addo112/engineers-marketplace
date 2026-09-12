@@ -7,6 +7,7 @@ import {
   ChevronDown, LayoutGrid, List, X, Loader2, UserPlus
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useCurrency } from '@/context/CurrencyContext';
 
 export interface EngineerItem {
   id: string;
@@ -31,6 +32,7 @@ const CATEGORIES = [
 ];
 
 export default function EngineersPage() {
+  const { currency, symbol, formatRate, exchangeRate } = useCurrency();
   const [engineers, setEngineers] = useState<EngineerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -126,8 +128,10 @@ export default function EngineersPage() {
     if (search && !eng.name.toLowerCase().includes(search.toLowerCase()) && !eng.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (category !== 'All' && eng.category !== category) return false;
     if (location && !eng.location.toLowerCase().includes(location.toLowerCase())) return false;
-    if (minRate && eng.hourlyRate < Number(minRate)) return false;
-    if (maxRate && eng.hourlyRate > Number(maxRate)) return false;
+    
+    const rateInCurrentCurrency = currency === 'GHS' ? Math.round(eng.hourlyRate * exchangeRate) : eng.hourlyRate;
+    if (minRate && rateInCurrentCurrency < Number(minRate)) return false;
+    if (maxRate && rateInCurrentCurrency > Number(maxRate)) return false;
     if (minRating > 0 && eng.rating < minRating) return false;
     if (availableOnly && !eng.available) return false;
     return true;
