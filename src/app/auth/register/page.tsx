@@ -90,6 +90,9 @@ export default function RegisterPage() {
     setErrorMsg(null);
     setLoading(true);
 
+    const parsedRate = parseFloat(rate) || (rateCurrency === 'GHS' ? 750 : 50);
+    const normalizedUsdRate = rateCurrency === 'USD' ? parsedRate : Math.round(parsedRate / 15.5);
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -101,7 +104,9 @@ export default function RegisterPage() {
             title: title || 'Professional Engineer',
             bio: bio || '',
             experience_years: parseInt(experience) || 1,
-            hourly_rate: parseFloat(rate) || 50,
+            hourly_rate: normalizedUsdRate,
+            original_rate: parsedRate,
+            rate_currency: rateCurrency,
           },
         },
       });
@@ -356,13 +361,23 @@ export default function RegisterPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate (USD / GHS equivalent)</label>
-                    <input
-                      type="number" required min="0"
-                      className="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-[#1e3a5f] outline-none"
-                      placeholder="e.g. 75"
-                      value={rate} onChange={(e) => setRate(e.target.value)}
-                    />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Hourly Rate</label>
+                    <div className="flex rounded-lg border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-[#1e3a5f]">
+                      <select
+                        value={rateCurrency}
+                        onChange={(e) => setRateCurrency(e.target.value as 'GHS' | 'USD')}
+                        className="bg-slate-50 border-r border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="GHS">GH₵ (GHS)</option>
+                        <option value="USD">$ (USD)</option>
+                      </select>
+                      <input
+                        type="number" required min="1"
+                        className="w-full px-4 py-2.5 outline-none text-slate-900"
+                        placeholder={rateCurrency === 'GHS' ? 'e.g. 500' : 'e.g. 50'}
+                        value={rate} onChange={(e) => setRate(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div>
