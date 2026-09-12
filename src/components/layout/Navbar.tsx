@@ -17,6 +17,8 @@ const navLinks: NavLink[] = [
   { label: "About", href: "/about" },
 ];
 
+import CurrencySelector from "@/components/layout/CurrencySelector";
+
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -99,8 +101,10 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* Desktop Right CTA Buttons */}
+          {/* Desktop Right CTA Buttons & Currency */}
           <div className="hidden md:flex items-center gap-3">
+            <CurrencySelector />
+            <div className="h-4 w-px bg-slate-200 mx-0.5"></div>
             <Link
               href="/login"
               className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-[#1e3a5f] hover:bg-slate-50 rounded-lg transition-colors duration-150"
@@ -118,6 +122,7 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
+            <CurrencySelector />
             <button
               type="button"
               onClick={() => setIsMenuOpen((prev) => !prev)}
