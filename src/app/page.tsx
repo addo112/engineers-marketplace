@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import FeaturedEngineersSection from "@/components/home/FeaturedEngineersSection";
 
 export const dynamic = 'force-dynamic';
 
@@ -111,7 +112,7 @@ export default async function LandingPage() {
             specialties: Array.isArray(eng.specializations) && eng.specializations.length > 0 
               ? eng.specializations.slice(0, 3) 
               : [eng.title || 'Engineering'],
-            rate: `$${eng.hourly_rate || 50}/hr`,
+            rawRate: Number(eng.hourly_rate) || 50,
             initials,
           };
         });
