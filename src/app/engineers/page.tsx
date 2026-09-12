@@ -267,7 +267,7 @@ export default function EngineersPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider">Hourly Rate ($)</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider">Hourly Rate ({symbol})</h3>
                   <div className="flex items-center gap-2">
                     <input 
                       type="number" 
@@ -428,7 +428,7 @@ export default function EngineersPage() {
                       <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-200/60">
                         <div>
                           <p className="text-xs text-slate-500 uppercase font-semibold tracking-wide">Hourly Rate</p>
-                          <p className="text-lg font-bold text-slate-900">${eng.hourlyRate}<span className="text-sm font-normal text-slate-500">/hr</span></p>
+                          <p className="text-lg font-bold text-slate-900">{formatRate(eng.hourlyRate, 'USD')}</p>
                         </div>
                         
                         <div className="flex flex-col items-end gap-2">
