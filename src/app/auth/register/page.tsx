@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [bio, setBio] = useState('');
   const [experience, setExperience] = useState('');
   const [rate, setRate] = useState('');
+  const [rateCurrency, setRateCurrency] = useState<'GHS' | 'USD'>('GHS');
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
