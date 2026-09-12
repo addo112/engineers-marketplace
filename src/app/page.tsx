@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { 
   Search, 
   User, 
@@ -20,7 +21,8 @@ import {
   Clock,
   Lock,
   Quote,
-  MapPin
+  MapPin,
+  UserPlus
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -36,53 +38,6 @@ const CATEGORIES = [
   { name: "Petroleum Engineering", count: "210", icon: Droplets },
   { name: "Telecommunications", count: "430", icon: Radio },
   { name: "Mining Engineering", count: "150", icon: Mountain },
-];
-
-const FEATURED_ENGINEERS = [
-  {
-    id: "1",
-    name: "Kwame Mensah",
-    title: "Senior Civil Engineer",
-    rating: 4.9,
-    reviews: 124,
-    location: "Accra, GH",
-    specialties: ["Structural Design", "AutoCAD", "Project Management"],
-    rate: "$45/hr",
-    initials: "KM",
-  },
-  {
-    id: "2",
-    name: "Abena Osei",
-    title: "Lead Electrical Engineer",
-    rating: 5.0,
-    reviews: 89,
-    location: "Kumasi, GH",
-    specialties: ["Power Systems", "Circuit Design", "Renewable Energy"],
-    rate: "$55/hr",
-    initials: "AO",
-  },
-  {
-    id: "3",
-    name: "Kojo Yeboah",
-    title: "Full Stack Software Engineer",
-    rating: 4.8,
-    reviews: 215,
-    location: "Remote",
-    specialties: ["React", "Node.js", "System Architecture"],
-    rate: "$60/hr",
-    initials: "KY",
-  },
-  {
-    id: "4",
-    name: "Ama Asante",
-    title: "Mechanical Design Engineer",
-    rating: 4.9,
-    reviews: 156,
-    location: "Tema, GH",
-    specialties: ["HVAC", "SolidWorks", "Thermodynamics"],
-    rate: "$50/hr",
-    initials: "AA",
-  },
 ];
 
 const TESTIMONIALS = [
@@ -106,7 +61,61 @@ const TESTIMONIALS = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  let featuredEngineers: any[] = [];
+
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('engineers')
+      .select(`
+        id,
+        title,
+        experience_years,
+        hourly_rate,
+        location,
+        country,
+        rating_average,
+        rating_count,
+        specializations,
+        profiles (
+          id,
+          full_name,
+          avatar_url,
+          email
+        )
+      `)
+      .limit(4);
+
+    if (data) {
+      featuredEngineers = data
+        .filter((eng: any) => !eng.profiles?.email?.includes('proengineer.test'))
+        .map((eng: any) => {
+          const name = eng.profiles?.full_name || 'Professional Engineer';
+          const initials = name
+            .split(' ')
+            .map((n: string) => n[0])
+            .join('')
+            .substring(0, 2)
+            .toUpperCase();
+          return {
+            id: eng.id,
+            name,
+            title: eng.title || 'Engineer Specialist',
+            rating: Number(eng.rating_average) || 5.0,
+            reviews: Number(eng.rating_count) || 0,
+            location: eng.location ? `${eng.location}, ${eng.country || 'GH'}` : 'Ghana',
+            specialties: Array.isArray(eng.specializations) && eng.specializations.length > 0 
+              ? eng.specializations.slice(0, 3) 
+              : [eng.title || 'Engineering'],
+            rate: `$${eng.hourly_rate || 50}/hr`,
+            initials,
+          };
+        });
+    }
+  } catch (err) {
+    console.error('Error fetching featured engineers:', err);
+  }
   return (
     <div className="flex flex-col min-h-screen">
       {/* 1. Hero Section */}
@@ -255,46 +264,64 @@ export default function LandingPage() {
             </Link>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {FEATURED_ENGINEERS.map((engineer) => (
-              <div key={engineer.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-slate-100 overflow-hidden transition-shadow flex flex-col h-full">
-                <div className="p-6 flex-grow">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="w-16 h-16 bg-[#1e3a5f] text-white rounded-full flex items-center justify-center text-xl font-bold">
-                      {engineer.initials}
+          {featuredEngineers.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {featuredEngineers.map((engineer) => (
+                <div key={engineer.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-slate-100 overflow-hidden transition-shadow flex flex-col h-full">
+                  <div className="p-6 flex-grow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-16 h-16 bg-[#1e3a5f] text-white rounded-full flex items-center justify-center text-xl font-bold">
+                        {engineer.initials}
+                      </div>
+                      <div className="flex items-center bg-amber-50 px-2 py-1 rounded text-sm font-medium text-amber-700">
+                        <Star className="w-4 h-4 text-[#f59e0b] mr-1 fill-current" />
+                        {engineer.rating} ({engineer.reviews})
+                      </div>
                     </div>
-                    <div className="flex items-center bg-amber-50 px-2 py-1 rounded text-sm font-medium text-amber-700">
-                      <Star className="w-4 h-4 text-[#f59e0b] mr-1 fill-current" />
-                      {engineer.rating} ({engineer.reviews})
+                    
+                    <h3 className="text-xl font-bold text-slate-800">{engineer.name}</h3>
+                    <p className="text-[#1e3a5f] font-medium text-sm mb-3">{engineer.title}</p>
+                    
+                    <div className="flex items-center text-slate-500 text-sm mb-4">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      {engineer.location}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {engineer.specialties.map((spec: string, idx: number) => (
+                        <span key={idx} className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-md font-medium">
+                          {spec}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   
-                  <h3 className="text-xl font-bold text-slate-800">{engineer.name}</h3>
-                  <p className="text-[#1e3a5f] font-medium text-sm mb-3">{engineer.title}</p>
-                  
-                  <div className="flex items-center text-slate-500 text-sm mb-4">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {engineer.location}
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {engineer.specialties.map((spec, idx) => (
-                      <span key={idx} className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-md font-medium">
-                        {spec}
-                      </span>
-                    ))}
+                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between mt-auto">
+                    <div className="font-bold text-slate-800">{engineer.rate}</div>
+                    <Link href={`/engineers/${engineer.id}`} className="text-sm font-semibold text-[#1e3a5f] hover:text-[#f59e0b] transition-colors py-1 px-3 border border-[#1e3a5f] rounded-lg hover:bg-[#1e3a5f] hover:text-white">
+                      View Profile
+                    </Link>
                   </div>
                 </div>
-                
-                <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between mt-auto">
-                  <div className="font-bold text-slate-800">{engineer.rate}</div>
-                  <Link href={`/engineers/${engineer.id}`} className="text-sm font-semibold text-[#1e3a5f] hover:text-[#f59e0b] transition-colors py-1 px-3 border border-[#1e3a5f] rounded-lg hover:bg-[#1e3a5f] hover:text-white">
-                    View Profile
-                  </Link>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-slate-50 rounded-2xl p-12 text-center border border-slate-200/80">
+              <div className="w-16 h-16 bg-blue-50 text-[#1e3a5f] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <UserPlus className="w-8 h-8" />
               </div>
-            ))}
-          </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Be the First Verified Engineer</h3>
+              <p className="text-slate-600 max-w-md mx-auto mb-6">
+                Join our marketplace to showcase your engineering expertise, connect with top firms, and grow your independent practice.
+              </p>
+              <Link
+                href="/register?role=engineer"
+                className="inline-flex items-center gap-2 bg-[#1e3a5f] hover:bg-[#152a45] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Join as an Engineer
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
