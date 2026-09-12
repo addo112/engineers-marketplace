@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = 'force-dynamic';
+
 import { 
   Search, 
   User, 
