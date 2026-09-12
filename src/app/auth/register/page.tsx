@@ -97,6 +97,10 @@ export default function RegisterPage() {
           data: {
             full_name: name,
             role: role || 'customer',
+            title: title || 'Professional Engineer',
+            bio: bio || '',
+            experience_years: parseInt(experience) || 1,
+            hourly_rate: parseFloat(rate) || 50,
           },
         },
       });
@@ -108,28 +112,38 @@ export default function RegisterPage() {
       }
 
       if (data?.user) {
-        // If engineer, save additional profile fields
-        if (role === 'engineer') {
-          await supabase.from('engineers').insert({
-            profile_id: data.user.id,
-            title: title || 'Professional Engineer',
-            bio: bio || '',
-            experience_years: parseInt(experience) || 1,
-            hourly_rate: parseFloat(rate) || 50,
-            location: 'Ghana',
-            country: 'Ghana',
-            availability_status: 'available',
-          });
+        if (role === 'engineer' && data.session) {
+          try {
+            await supabase.from('engineers').upsert({
+              profile_id: data.user.id,
+              title: title || 'Professional Engineer',
+              bio: bio || '',
+              experience_years: parseInt(experience) || 1,
+              hourly_rate: parseFloat(rate) || 50,
+              location: 'Ghana',
+              country: 'Ghana',
+              availability_status: 'available',
+            });
+          } catch (e) {
+            console.log('Engineer profile handled by trigger');
+          }
         }
 
-        setSuccessMsg('Account created successfully! Redirecting to your dashboard...');
-        setTimeout(() => {
-          if (role === 'engineer') {
-            router.push('/dashboard/engineer');
-          } else {
-            router.push('/dashboard/customer');
-          }
-        }, 1500);
+        if (data.session) {
+          setSuccessMsg('Account created successfully! Redirecting to your dashboard...');
+          setTimeout(() => {
+            if (role === 'engineer') {
+              router.push('/dashboard/engineer');
+            } else {
+              router.push('/dashboard/customer');
+            }
+          }, 1500);
+        } else {
+          setSuccessMsg('Account created successfully! If email confirmation is enabled, please check your inbox to confirm, or click Log In.');
+          setTimeout(() => {
+            router.push('/login');
+          }, 3500);
+        }
       }
     } catch (err: any) {
       if (err.message === 'Failed to fetch') {

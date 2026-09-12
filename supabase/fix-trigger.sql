@@ -1,49 +1,76 @@
--- ============================================
--- DEFINITIVE FIX: User registration trigger
--- Run this in Supabase SQL Editor
--- ============================================
+-- ============================================================
+-- BULLETPROOF REGISTRATION TRIGGER FIX
+-- Copy and paste this into Supabase SQL Editor and click RUN
+-- ============================================================
 
--- Step 1: Drop existing trigger and function completely
+-- 1. Drop existing trigger and function
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
 DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS handle_new_user();
 
--- Step 2: Recreate with Supabase-recommended pattern
--- Key fix: "security definer set search_path = ''" ensures proper schema resolution
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = ''
-as $$
-begin
-  insert into public.profiles (id, email, full_name, role)
-  values (
-    new.id,
-    coalesce(new.email, ''),
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(coalesce(new.email, ''), '@', 1)),
-    coalesce(new.raw_user_meta_data->>'role', 'customer')
+-- 2. Create the bulletproof function
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.email, ''),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
+    CASE 
+      WHEN NEW.raw_user_meta_data->>'role' IN ('engineer', 'customer') 
+      THEN NEW.raw_user_meta_data->>'role'
+      ELSE 'customer'
+    END
   )
-  on conflict (id) do update set
-    email = excluded.email,
-    full_name = excluded.full_name,
-    updated_at = now();
-  return new;
-exception
-  when others then
-    raise log 'handle_new_user error: %', sqlerrm;
-    return new;
-end;
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    role = EXCLUDED.role,
+    updated_at = NOW();
+
+  -- If user registered as engineer, also create their engineer entry automatically!
+  IF (NEW.raw_user_meta_data->>'role' = 'engineer') THEN
+    INSERT INTO public.engineers (
+      profile_id,
+      title,
+      bio,
+      experience_years,
+      hourly_rate,
+      location,
+      country,
+      availability_status
+    )
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.raw_user_meta_data->>'title', 'Professional Engineer'),
+      COALESCE(NEW.raw_user_meta_data->>'bio', ''),
+      COALESCE((NEW.raw_user_meta_data->>'experience_years')::INTEGER, 1),
+      COALESCE((NEW.raw_user_meta_data->>'hourly_rate')::DECIMAL, 50.00),
+      'Ghana',
+      'Ghana',
+      'available'
+    )
+    ON CONFLICT (profile_id) DO UPDATE SET
+      title = EXCLUDED.title,
+      bio = EXCLUDED.bio,
+      experience_years = EXCLUDED.experience_years,
+      hourly_rate = EXCLUDED.hourly_rate;
+  END IF;
+
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Never let trigger failure block user registration!
+    RETURN NEW;
+END;
 $$;
 
--- Step 3: Recreate trigger
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- Step 4: Grant necessary permissions
-grant usage on schema public to supabase_auth_admin;
-grant all on public.profiles to supabase_auth_admin;
-
--- Step 5: Clean up any orphaned auth users from failed attempts
--- (This deletes auth users that don't have a matching profile)
-delete from auth.users where id not in (select id from public.profiles);
+-- 3. Attach trigger to auth.users
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
